@@ -85,6 +85,7 @@ if ($_GET['do'] == "ajax") {
 	$header = imap_headerinfo($mbox,$msgno);
 	$body = imap_body($mbox, $msgno);
 	echo enewtext($header->reply_toaddress,"","",nice_re($header->subject),indent($body));
+	$_SESSION["headers"] = "In-Reply-To: ".$header->message_id."\n";
 	die();
 }
 
@@ -184,8 +185,9 @@ foreach ($folders as $f) {
 echo "</div><div id=\"main\">";
 
 if ($_GET['do'] == "send") {
-	print_r($_POST);
-	imap_mail($_POST["to"], $_POST["subject"], $_POST["content"], "", $_POST["cc"], $_POST["bcc"], $user)
+#	print_r($_POST);
+	imap_mail($_POST["to"], $_POST["subject"], $_POST["content"], $_SESSION["headers"], $_POST["cc"], $_POST["bcc"], $user);
+	$_SESSION["headers"] = "";
 ?>
 <h2>Message Sent</h2>
 <a href="index.php">Return to inbox</a>?
