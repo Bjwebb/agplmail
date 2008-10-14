@@ -17,13 +17,6 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/*
-TODO:
-# Use session cookies to remember what page to go back to.
-# Messages in reverse date order (pre-array-isation)
-# Manually order folder list
-*/
-
 if ($_GET['do'] == "src") {
 	header('Content-type: text/plain');
 	$myself = file($_SERVER['SCRIPT_FILENAME']);
