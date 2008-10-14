@@ -21,6 +21,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 TODO:
 # Use session cookies to remember what page to go back to.
 # Messages in reverse date order (pre-array-isation)
+# Manually order folder list
 */
 
 if ($_GET['do'] == "src") {
@@ -78,8 +79,21 @@ $user = $_SESSION['username']."@freedomdreams.co.uk";
 $uname = $_SESSION['username'];
 $pass = $_SESSION['password'];
 
+if ($_POST['username']) {
+	$_SESSION['username'] = $_POST['username'];
+	$_SESSION['password'] = $_POST['password'];
+}
+$folder = $_GET['folder'];
+if ($folder) $_SESSION['folder'] = $folder;
+else {
+	$folder = $_SESSION['folder'];
+	if (!folder) {
+		$folder = "INBOX";
+		$_SESSION['folder'] = "INBOX";
+	}
+}
+
 if ($_GET['do'] == "ajax") {
-	$folder = $_POST["folder"]; 
 	$msgno = $_POST["msgno"];
 	$mbox = @imap_open("{".$server."/imap/notls}".$folder, $user, $pass);
 	$header = imap_headerinfo($mbox,$msgno);
@@ -87,11 +101,6 @@ if ($_GET['do'] == "ajax") {
 	echo enewtext($header->reply_toaddress,"","",nice_re($header->subject),indent($body));
 	$_SESSION["headers"] = "In-Reply-To: ".$header->message_id."\n";
 	die();
-}
-
-if ($_POST['username']) {
-	$_SESSION['username'] = $_POST['username'];
-	$_SESSION['password'] = $_POST['password'];
 }
 
 ?>
@@ -168,8 +177,6 @@ else {
 
 echo "<div id=\"intro\">Welcome ".$uname." it is ".date("H:i").". <a href=\"index.php?do=logout\">Logout</a>?</div>";
 
-$folder = $_GET['folder'];
-if (!$folder) $folder = "INBOX";
 $mbox = @imap_open("{".$server."/imap/notls}".$folder, $user, $pass);$mbox = @imap_open("{".$server."/imap/notls}".$folder, $user, $pass);
 
 echo "<div id=\"sidebar\">";
@@ -192,13 +199,20 @@ if ($_GET['do'] == "send") {
 <h2>Message Sent</h2>
 <a href="index.php">Return to inbox</a>?
 <?php }
+elseif ($_GET['do'] == "del") {
+	imap_delete($mbox,$_GET['msgno']);
+	imap_expunge($mbox)
+?>
+<h2>Message Deleted</h2>
+<a href="index.php">Return to inbox</a>?
+<?php }
 elseif ($_GET['do'] == "new") {
 	echo "<h2>New Email</h2>";
 	echo enewtext("","","","","");
 }
 elseif ($_GET['do'] == "message") {
-	echo "<a href=\"index.php?do=list&folder\">Back to ".nice_inf($folder)."</a><br><br>";
 	$msgno = $_GET['msgno'];
+	echo "<a href=\"index.php?do=list\">Back to ".nice_inf($folder)."</a> <a href=\"index.php?do=del&msgno=$msgno\">Delete</a><br>";
 	$header = imap_headerinfo($mbox,$msgno);
 	$body = nl2br(imap_body($mbox, $msgno));
 	echo "<h2>".$header->subject."</h2>";
@@ -211,7 +225,7 @@ elseif ($_GET['do'] == "message") {
 	echo "<div class=\"econ\">".$body."</div>"; ?>
 <script language="javascript">
 function reply() {
-	ajax("msgno=<?php echo $msgno ?>&folder=<?php echo $folder ?>", "esend<?php echo $e ?>", false);
+	ajax("msgno=<?php echo $msgno ?>", "esend<?php echo $e ?>", false);
 }
 </script>
 <br/><div class="efoot"><a href="javascript:reply()">Reply</a> Reply to All Forward</div><div id="esend<?php echo $e ?>"></div></div>
@@ -228,7 +242,7 @@ else {
 	for ($i=1; $i<=$status->messages; $i++) {
 		$header = imap_headerinfo($mbox,$i);
 #	    print_r($header);
-		echo "<tr><td>".$header->fromaddress."</td><td><a href=\"index.php?do=message&folder=$folder&msgno=$i\">".$header->subject."</a></td><td>".nice_date($header->udate)."</td></tr>\n";
+		echo "<tr><td>".$header->fromaddress."</td><td><a href=\"index.php?do=message&msgno=$i\">".$header->subject."</a></td><td>".nice_date($header->udate)."</td></tr>\n";
 	}
 	echo "</table>";
 }
