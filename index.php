@@ -204,7 +204,7 @@ echo "</div><div id=\"main\">";
 
 if ($_GET['do'] == "send") {
 #	print_r($_POST);
-	imap_mail($_POST["to"], $_POST["subject"], $_POST["content"], $_SESSION["headers"], $_POST["cc"], $_POST["bcc"], $user);
+	imap_mail($_POST["to"], $_POST["subject"], $_POST["content"], $_SESSION["headers"], $_POST["cc"], $user.", ".$_POST["bcc"], $user);
 	$_SESSION["headers"] = "";
 ?>
 <h2>Message Sent</h2>
@@ -280,12 +280,13 @@ else {
 		echo "</table>";
 		$_SESSION['convos'] = $convos;
 		
-		
+/*		
 		echo "<h3>Threads</h3>";
 		print_r($threads);
 
 		echo "<h3>Convos</h3>";
 		print_r($_SESSION['convos']);
+*/
 
 	}	
 }
