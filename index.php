@@ -52,6 +52,10 @@ function nice_re($sub) {
 		return $sub;
 	else return "Re: ".$sub;
 }
+function nice_subject($sub) {
+	if ($sub) return $sub;
+	else return "(no subject)";
+}
 function indent($mess) {
 	return "> ".ereg_replace("\n","\n> ",$mess);
 }
@@ -158,6 +162,9 @@ h1 {
 tr.read {
 	background-color: #DDFFDD;
 }
+tr.read_sel, tr.unread_sel {
+	background-color: #FFFFDD;	
+}
 tr.header {
 	background-color: #AAFFAA;
 }
@@ -171,14 +178,14 @@ tr.header {
 
 if ($_GET['do'] == logout) {
 	session_destroy(); ?>
-Succesfully logged out, <a href="index.php">return to login</a>?
+<h2>Logged out</h2> <a href="index.php">Return to login</a>?
 <?php }
 elseif (!$_SESSION['username']) {
 ?>
 
 <h2>Login</h2>
 <form method="post" action="index.php">
-	User: <input name="username"></input><br/>mess
+	User: <input name="username"></input><br/>
 	Password: <input name="password" type="password"></input><br/>
 	<button type="submit">Submit</button>
 </form>
@@ -186,9 +193,15 @@ elseif (!$_SESSION['username']) {
 <?php }
 else {
 
-echo "<div id=\"intro\">Welcome ".$uname." it is ".date("H:i").". <a href=\"index.php?do=logout\">Logout</a>?</div>";
-
 $mbox = @imap_open("{".$server."/imap/notls}".$folder, $user, $pass);
+
+if (!$mbox) {
+	session_destroy(); ?>
+<h2>Sorry login failed</h2> <a href="index.php">Try again</a>?
+<?php }
+else {
+
+echo "<div id=\"intro\">Welcome ".$uname." it is ".date("H:i").". <a href=\"index.php?do=logout\">Logout</a>?</div>";
 
 echo "<div id=\"sidebar\">";
 echo "<a href=\"index.php?do=new\">New Email</a>";
@@ -230,12 +243,13 @@ elseif ($_GET['do'] == "message") {
 	foreach ($convos[$convo] as $key => $msgno) {
 		$header = imap_headerinfo($mbox,$msgno);
 		$body = nl2br(htmlspecialchars(imap_body($mbox, $msgno)));
+#		imap_setflag_full($mbox,$msgno,"\\Seen");
 		echo "<div class=\"emess\"><div class=\"ehead\">From: ".nice_addr_list($header->from)."<br/>";
 		if ($header->to) echo "To: ".nice_addr_list($header->to)."<br/>";
 		if ($header->cc) echo "CC: ".nice_addr_list($header->cc)."<br/>";
 		echo "Date: ".date("j F Y H:i",$header->udate)."<br/>";
 		echo "Subject: ".$header->subject."</div><br/>";
-	#	print_r($header);
+#		print_r($header);
 		echo "<div class=\"econ\">".$body."</div>"; ?>
 	<script language="javascript">
 function reply<?php echo $e ?>() {
@@ -254,30 +268,69 @@ else {
 #	echo "There are ".$status->messages." messages in the ".nice_inf($folder).".<br><br>\n";
 	if ($status->messages != 0) {
 		$threads = imap_thread($mbox);
-
-		echo "<table width=\"100%\" id=\"list\">";
-		echo "<tr class=\"header\"><td width=\"30%\">From</td><td width=\"55%\">Subject</td><td width=\"15%\">Date</td></tr>";
+?>
+<script language="javascript">
+	function hili(num,base) {
+		if (document.getElementById("tick"+num).checked == true) {
+			document.getElementById("mess"+num).className = base+"_sel";
+		}
+		else {
+			document.getElementById("mess"+num).className = base;
+		}
+	}
+	function tick(chk,val) {
+		for (i = 0; i < chk.length; i++) {
+			chk[i].checked = val;
+			chk[i].onchange();
+		}
+	}
+	function selall() {
+		tick(document.form.check_read,true);
+		tick(document.form.check_unread,true);
+	}
+	function selnone() {
+		tick(document.form.check_read,false);
+		tick(document.form.check_unread,false);
+	}
+	function selread() {
+		tick(document.form.check_read,true);
+		tick(document.form.check_unread,false);
+	}
+	function selunread() {
+		tick(document.form.check_unread,true);
+		tick(document.form.check_read,false);
+	}
+</script>
+<?php
+		echo "<table width=\"100%\" id=\"list\"><form name=\"form\">";
+		echo "<tr class=\"header\"><td colspan=\"4\">Select: <a href=\"javascript:selall()\">All</a>, <a href=\"javascript:selnone()\">None</a>, <a href=\"javascript:selread()\">Read</a>, <a href=\"javascript:selunread()\">Unread</a></td></tr>";
 		$threadlen = 0;
 		$convos = array();
 		$i = 0;
+		$seen = true;
 		foreach ($threads as $key => $val) {
 #			$convos[$i] = array();
 			$tree = explode('.', $key);
 			if ($tree[1] == 'num' && $val != 0) {
+				$tmpheader = imap_headerinfo($mbox, $val);
+				if ($tmpheader->Unseen == "U" || $tmpheader->Recent == "N") $seen = false;
 				if($threadlen == 0) {
-					$header = imap_headerinfo($mbox, $val);
+					$header = $tmpheader;
 				}
 				$threadlen++;
 				$convos[$i][] = $val;
 			} elseif ($tree[1] == 'branch') {
 				if ($threadlen != 0) {
-					echo "<tr class=\"read\"><td>".$header->fromaddress." (".$threadlen.")</td><td><a href=\"index.php?do=message&convo=$i\">".$header->subject."</a></td><td>".nice_date($header->udate)."</td></tr>\n";
+					if ($seen) $class = "read";
+					else $class = "unread";
+					echo "<tr class=\"$class\" id=\"mess$i\"><td><input type=\"checkbox\" id=\"tick$i\" name=\"check_$class\" onchange=\"javascript:hili($i,'$class')\"></td><td width=\"30%\">".$header->fromaddress." (".$threadlen.")</td><td><a href=\"index.php?do=message&convo=$i\" width=\"55%\">".nice_subject($header->subject)."</a></td><td width=\"15%\">".nice_date($header->udate)."</td></tr>\n";
 					$i++;
 				}
 				$threadlen = 0;
+				$seen = true;
 			}
 		}
-		echo "</table>";
+		echo "</form></table>";
 		$_SESSION['convos'] = $convos;
 		
 /*		
@@ -295,9 +348,9 @@ echo "</div>";
 
 imap_close($mbox);
 
-} ?>
+} } ?>
 
-<br/>AGPLMail is released under the <a href="http://www.fsf.org/licensing/licenses/agpl-3.0.html">AGPL v3</a>. Care to see the <a href="index.php?do=src">Source Code</a>?
+<br/><br/>AGPLMail is released under the <a href="http://www.fsf.org/licensing/licenses/agpl-3.0.html">AGPL v3</a>. Care to see the <a href="index.php?do=src">Source Code</a>?
 
 </body>
 </html>
