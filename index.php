@@ -67,15 +67,15 @@ function enewtext($to, $cc, $bcc, $sub, $con) {
 }
 session_start();
 
+if ($_POST['username']) {
+	$_SESSION['username'] = $_POST['username'];
+	$_SESSION['password'] = $_POST['password'];
+}
 $server = "localhost";
 $user = $_SESSION['username']."@freedomdreams.co.uk";
 $uname = $_SESSION['username'];
 $pass = $_SESSION['password'];
 
-if ($_POST['username']) {
-	$_SESSION['username'] = $_POST['username'];
-	$_SESSION['password'] = $_POST['password'];
-}
 $folder = $_GET['folder'];
 if ($folder) $_SESSION['folder'] = $folder;
 else {
@@ -91,7 +91,7 @@ if ($_GET['do'] == "ajax") {
 	$mbox = @imap_open("{".$server."/imap/notls}".$folder, $user, $pass);
 	$header = imap_headerinfo($mbox,$msgno);
 	$body = imap_body($mbox, $msgno);
-	echo enewtext($header->reply_toaddress,"","",nice_re($header->subject),indent($body));
+	echo enewtext($header->reply_toaddress,"","",nice_re($header->subject),"On ".date("j F Y H:i",$header->udate).", ".$header->fromaddress." wrote:\n".indent($body));
 	$_SESSION["headers"] = "In-Reply-To: ".$header->message_id."\n";
 	die();
 }
@@ -135,13 +135,31 @@ h1 {
 	margin-left: 16px;
 }
 .emess {
-	border-left: medium solid #AAFFAA
+	border-left: medium solid #AAFFAA;
+	border-right: medium solid #AAFFAA;
+	margin-bottom: 15px;
 }
 #reply {
 	visibility: hidden;
 	position: absolute;
 	top: 0;
 	left: 0;
+}
+#list {
+	border-left: thin solid black;
+	border-right: thin solid black;
+	border-top: thin solid black;
+	border-spacing: 0px;
+}
+#list td {
+	border-bottom: thin solid black;
+	padding: 3px;
+}
+tr.read {
+	background-color: #DDFFDD;
+}
+tr.header {
+	background-color: #AAFFAA;
 }
 </style>
 <script type="text/javascript" src="ajax.js"></script>
@@ -160,7 +178,7 @@ elseif (!$_SESSION['username']) {
 
 <h2>Login</h2>
 <form method="post" action="index.php">
-	User: <input name="username"></input><br/>
+	User: <input name="username"></input><br/>mess
 	Password: <input name="password" type="password"></input><br/>
 	<button type="submit">Submit</button>
 </form>
@@ -170,7 +188,7 @@ else {
 
 echo "<div id=\"intro\">Welcome ".$uname." it is ".date("H:i").". <a href=\"index.php?do=logout\">Logout</a>?</div>";
 
-$mbox = @imap_open("{".$server."/imap/notls}".$folder, $user, $pass);$mbox = @imap_open("{".$server."/imap/notls}".$folder, $user, $pass);
+$mbox = @imap_open("{".$server."/imap/notls}".$folder, $user, $pass);
 
 echo "<div id=\"sidebar\">";
 echo "<a href=\"index.php?do=new\">New Email</a>";
@@ -204,40 +222,72 @@ elseif ($_GET['do'] == "new") {
 	echo enewtext("","","","","");
 }
 elseif ($_GET['do'] == "message") {
-	$msgno = $_GET['msgno'];
-	echo "<a href=\"index.php?do=list\">Back to ".nice_inf($folder)."</a> <a href=\"index.php?do=del&msgno=$msgno\">Delete</a><br>";
-	$header = imap_headerinfo($mbox,$msgno);
-	$body = nl2br(imap_body($mbox, $msgno));
+	$convo = $_GET['convo'];
+	$convos = $_SESSION['convos'];
+	echo "<a href=\"index.php?do=list\">Back to ".nice_inf($folder)."</a> <a href=\"index.php?do=del&convo=$convo\">Delete</a><br>";
+	$header = imap_headerinfo($mbox,$convos[$convo][0]);
 	echo "<h2>".$header->subject."</h2>";
-	echo "<div class=\"emess\"><div class=\"ehead\">From: ".nice_addr_list($header->from)."<br/>";
-	if ($header->to) echo "To: ".nice_addr_list($header->to)."<br/>";
-	if ($header->cc) echo "CC: ".nice_addr_list($header->cc)."<br/>";
-	echo "Date: ".date("j F Y H:ia",$header->udate)."<br/>";
-	echo "Subject: ".$header->subject."</div><br/>";
-#	print_r($header);
-	echo "<div class=\"econ\">".$body."</div>"; ?>
-<script language="javascript">
-function reply() {
+	foreach ($convos[$convo] as $key => $msgno) {
+		$header = imap_headerinfo($mbox,$msgno);
+		$body = nl2br(htmlspecialchars(imap_body($mbox, $msgno)));
+		echo "<div class=\"emess\"><div class=\"ehead\">From: ".nice_addr_list($header->from)."<br/>";
+		if ($header->to) echo "To: ".nice_addr_list($header->to)."<br/>";
+		if ($header->cc) echo "CC: ".nice_addr_list($header->cc)."<br/>";
+		echo "Date: ".date("j F Y H:i",$header->udate)."<br/>";
+		echo "Subject: ".$header->subject."</div><br/>";
+	#	print_r($header);
+		echo "<div class=\"econ\">".$body."</div>"; ?>
+	<script language="javascript">
+function reply<?php echo $e ?>() {
 	ajax("msgno=<?php echo $msgno ?>", "esend<?php echo $e ?>", false);
 }
 </script>
-<br/><div class="efoot"><a href="javascript:reply()">Reply</a> Reply to All Forward</div><div id="esend<?php echo $e ?>"></div></div>
+<br/><div class="efoot"><a href="javascript:reply<?php echo $e ?>()">Reply</a> Reply to All Forward</div><div id="esend<?php echo $e ?>"></div></div>
 	<?php
+		$e++;
+	}
 }
 else {
 	echo "<h2>".nice_folder($folder)."</h2>\n";
 
 	$status = imap_status($mbox, "{".$server."}".$folder, SA_ALL);
-	echo "There are ".$status->messages." messages in the ".nice_inf($folder).".<br><br>\n";
+#	echo "There are ".$status->messages." messages in the ".nice_inf($folder).".<br><br>\n";
+	if ($status->messages != 0) {
+		$threads = imap_thread($mbox);
 
-	echo "<table width=\"80%\">";
-	echo "<tr><td width=\"30%\">From</td><td width=\"50%\">Subject</td><td width=\"20%\">Date</td></tr>";
-	for ($i=1; $i<=$status->messages; $i++) {
-		$header = imap_headerinfo($mbox,$i);
-#	    print_r($header);
-		echo "<tr><td>".$header->fromaddress."</td><td><a href=\"index.php?do=message&msgno=$i\">".$header->subject."</a></td><td>".nice_date($header->udate)."</td></tr>\n";
-	}
-	echo "</table>";
+		echo "<table width=\"100%\" id=\"list\">";
+		echo "<tr class=\"header\"><td width=\"30%\">From</td><td width=\"55%\">Subject</td><td width=\"15%\">Date</td></tr>";
+		$threadlen = 0;
+		$convos = array();
+		$i = 0;
+		foreach ($threads as $key => $val) {
+#			$convos[$i] = array();
+			$tree = explode('.', $key);
+			if ($tree[1] == 'num' && $val != 0) {
+				if($threadlen == 0) {
+					$header = imap_headerinfo($mbox, $val);
+				}
+				$threadlen++;
+				$convos[$i][] = $val;
+			} elseif ($tree[1] == 'branch') {
+				if ($threadlen != 0) {
+					echo "<tr class=\"read\"><td>".$header->fromaddress." (".$threadlen.")</td><td><a href=\"index.php?do=message&convo=$i\">".$header->subject."</a></td><td>".nice_date($header->udate)."</td></tr>\n";
+					$i++;
+				}
+				$threadlen = 0;
+			}
+		}
+		echo "</table>";
+		$_SESSION['convos'] = $convos;
+		
+		
+		echo "<h3>Threads</h3>";
+		print_r($threads);
+
+		echo "<h3>Convos</h3>";
+		print_r($_SESSION['convos']);
+
+	}	
 }
 
 echo "</div>";
