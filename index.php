@@ -83,8 +83,7 @@ if ($_POST['username']) {
 	$_SESSION['username'] = $_POST['username'];
 	$_SESSION['password'] = $_POST['password'];
 }
-$server = "localhost";
-$user = $_SESSION['username']."@freedomdreams.co.uk";
+$user = $_SESSION['username'].$userprefix;
 $uname = $_SESSION['username'];
 $pass = $_SESSION['password'];
 

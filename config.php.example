@@ -1,0 +1,11 @@
+<?php
+
+$db_host = "localhost";
+$db_name = "bjwebb";
+$db_pass = "nottellingyouthis";
+$db_db = "bjwebb";
+
+$server = "localhost";
+$userprefix = "@freedomdreams.co.uk";
+
+?>
