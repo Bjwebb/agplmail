@@ -17,6 +17,8 @@ You should have received a copy of the GNU Affero General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+include "config.php";
+
 if ($_GET['do'] == "src") {
 	header('Content-type: text/plain');
 	$myself = file($_SERVER['SCRIPT_FILENAME']);
@@ -69,6 +71,12 @@ function enewtext($to, $cc, $bcc, $sub, $con) {
 	<button type=\"submit\">Send<button>
 </form>";
 }
+
+$con = mysql_connect($db_host,$db_name,$db_pass);
+if (!$con) {
+  die('Could not connect: ' . mysql_error());
+}
+if (mysql_select_db($db_db, $con)); else die(mysql_error()); 
 session_start();
 
 if ($_POST['username']) {
@@ -223,13 +231,6 @@ if ($_GET['do'] == "send") {
 <h2>Message Sent</h2>
 <a href="index.php">Return to inbox</a>?
 <?php }
-elseif ($_GET['do'] == "del") {
-	imap_delete($mbox,$_GET['msgno']);
-	imap_expunge($mbox)
-?>
-<h2>Message Deleted</h2>
-<a href="index.php">Return to inbox</a>?
-<?php }
 elseif ($_GET['do'] == "new") {
 	echo "<h2>New Email</h2>";
 	echo enewtext("","","","","");
@@ -237,13 +238,12 @@ elseif ($_GET['do'] == "new") {
 elseif ($_GET['do'] == "message") {
 	$convo = $_GET['convo'];
 	$convos = $_SESSION['convos'];
-	echo "<a href=\"index.php?do=list\">Back to ".nice_inf($folder)."</a> <a href=\"index.php?do=del&convo=$convo\">Delete</a><br>";
+	echo "<a href=\"index.php?do=list\">Back to ".nice_inf($folder)."</a> <a href=\"index.php?do=listaction&type=del&range=$convo\">Delete</a><br>";
 	$header = imap_headerinfo($mbox,$convos[$convo][0]);
 	echo "<h2>".$header->subject."</h2>";
 	foreach ($convos[$convo] as $key => $msgno) {
 		$header = imap_headerinfo($mbox,$msgno);
 		$body = nl2br(htmlspecialchars(imap_body($mbox, $msgno)));
-#		imap_setflag_full($mbox,$msgno,"\\Seen");
 		echo "<div class=\"emess\"><div class=\"ehead\">From: ".nice_addr_list($header->from)."<br/>";
 		if ($header->to) echo "To: ".nice_addr_list($header->to)."<br/>";
 		if ($header->cc) echo "CC: ".nice_addr_list($header->cc)."<br/>";
@@ -264,10 +264,41 @@ function reply<?php echo $e ?>() {
 else {
 	echo "<h2>".nice_folder($folder)."</h2>\n";
 
+	if ($_GET['do'] == "listaction") {
+		$convos = $_SESSION['convos'];
+		$selection = split(",",$_GET['range']);
+		if ($_GET['type'] == "del") {
+			foreach ($selection as $convo) {
+				foreach ($convos[$convo] as $msgno) {
+					imap_delete($mbox,$msgno);
+				}
+			}
+			imap_expunge($mbox);
+		}
+		else {
+			$msglist = "";
+			$first = true;
+			foreach ($selection as $convo) {
+				foreach ($convos[$convo] as $msgno) {
+					if ($first) $first = false;
+					else $msglist .= ",";
+					$msglist .= $msgno;
+				}	
+			}
+			if ($_GET['type'] == "read") {
+				imap_setflag_full($mbox,$msglist,"\\Seen");
+			}
+			if ($_GET['type'] == "unread") {
+				imap_clearflag_full($mbox,$msglist,"\\Seen");
+			}
+		}
+	}
+
 	$status = imap_status($mbox, "{".$server."}".$folder, SA_ALL);
 #	echo "There are ".$status->messages." messages in the ".nice_inf($folder).".<br><br>\n";
 	if ($status->messages != 0) {
 		$threads = imap_thread($mbox);
+		$self = "index.php?do=list&folder=$folder";
 ?>
 <script language="javascript">
 	function hili(num,base) {
@@ -300,10 +331,33 @@ else {
 		tick(document.form.check_unread,true);
 		tick(document.form.check_read,false);
 	}
+	function moreact(value) {
+		range=""
+		i=0;
+		first = true;
+		while (document.getElementById("tick"+i)) {
+			if (document.getElementById("tick"+i).checked == true) {
+				if (first) {
+					first = false;
+				}
+				else {
+					range += ","
+				}
+				range += i;
+			}
+			i++;
+		}
+		if (range == "") {
+			alert("Please select one or more messages.");
+		}
+		else {
+			location.href = "index.php?do=listaction&type="+value+"&range="+range;
+		}
+	}
 </script>
 <?php
 		echo "<table width=\"100%\" id=\"list\"><form name=\"form\">";
-		echo "<tr class=\"header\"><td colspan=\"4\">Select: <a href=\"javascript:selall()\">All</a>, <a href=\"javascript:selnone()\">None</a>, <a href=\"javascript:selread()\">Read</a>, <a href=\"javascript:selunread()\">Unread</a></td></tr>";
+		echo "<tr class=\"header\"><td colspan=\"4\"><button type=\"button\" onClick=\"javascript:moreact('arc')\">Archive</button> <button type=\"button\" onClick=\"javascript:moreact('del')\">Delete</button> <select><option>More Actions</option><option onClick=\"javascript:moreact('read')\">Mark as Read</option><option onClick=\"javascript:moreact('unread')\">Mark as Unread</option></select> <a href=\"$self\">Refresh</a><br/>Select: <a href=\"javascript:selall()\">All</a>, <a href=\"javascript:selnone()\">None</a>, <a href=\"javascript:selread()\">Read</a>, <a href=\"javascript:selunread()\">Unread</a></td></tr>";
 		$threadlen = 0;
 		$convos = array();
 		$i = 0;
