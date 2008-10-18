@@ -1,1 +1,6 @@
-To find out about AGPLMail, have a look at http://freedomdreams.co.uk/wiki/AGPLMail
+To install, you must already have an IMAP server set up. You will also need a webserver with mysql and php with the php-imap library.
+
+   1. Copy config.php.example to config.php and edit values to suit your server
+   2. Run the structure.sql file on your database.
+
+For more information, please see http://freedomdreams.co.uk/wiki/AGPLMail
