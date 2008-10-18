@@ -85,6 +85,27 @@ function actions() {
 	$atext .= " <button type=\"button\" onClick=\"javascript:moreact('del')\">Delete</button> <select><option>More Actions</option><option onClick=\"javascript:moreact('read')\">Mark as Read</option><option onClick=\"javascript:moreact('unread')\">Mark as Unread</option></select> <a href=\"$self\">Refresh</a>";
 	return $atext;
 }
+function add_setting($name, $value) {
+	global $con;
+	global $db_prefix;
+	global $user;
+	if ($result = mysql_query("SELECT * FROM `".$db_prefix."settings` WHERE account='$user' AND name='$name'",$con)); else die(mysql_error());
+	if (mysql_fetch_array($result)) {
+		if (mysql_query("UPDATE `".$db_prefix."settings` SET value='$value' WHERE account='$user' AND name='$name'", $con)); else die(mysql_error());
+	}
+	else {
+		if (mysql_query("INSERT INTO `".$db_prefix."settings` (account, name, value) VALUES('$user', '$name', '$value')", $con)); else die(mysql_error());
+	}
+}
+function get_setting($name) {
+	global $con;
+	global $db_prefix;
+	global $user;
+	if ($result = mysql_query("SELECT * FROM `".$db_prefix."settings` WHERE account='$user' AND name='$name'",$con)); else die(mysql_error());
+	if ($row=mysql_fetch_array($result)) {
+		return $row["value"];
+	}
+}
 
 $con = mysql_connect($db_host,$db_name,$db_pass);
 if (!$con) {
@@ -260,6 +281,8 @@ foreach ($folders as $f) {
 ?>
 <a href="<?php echo $me ?>?do=list&view=inbox">Inbox</a><br/>
 <a href="<?php echo $me ?>?do=list&view=arc">Archive</a><br/>
+<br/>
+<a href="<?php echo $me ?>?do=settings">Settings</a><br/>
 <?php
 
 echo "</div><div id=\"main\">";
@@ -339,9 +362,21 @@ while ($row = mysql_fetch_array($result)) {
 	$archived[$row["msgno"]] = $row['archived'];
 }
 
-if ($_GET['do'] == "send") {
+if ($_GET['do'] == "settings") {
+	if ($_POST['name']) {
+		add_setting("name",$_POST['name']);
+	}
+	?>
+<h2>Settings</h2>
+<form method="post" action="<?php echo $me ?>?do=settings">
+	Name: <input name="name" value="<?php echo get_setting("name"); ?>"></input><br/>
+	<button type="submit">Submit</button>
+</form>
+	<?php
+}
+elseif ($_GET['do'] == "send") {
 #	print_r($_POST);
-	imap_mail($_POST["to"], $_POST["subject"], $_POST["content"], $_SESSION["headers"]."Content-Type: text/plain; charset=\"utf-8\"\n", $_POST["cc"], $user.", ".$_POST["bcc"], "Ben Webb <$user>");
+	imap_mail($_POST["to"], $_POST["subject"], $_POST["content"], $_SESSION["headers"]."Content-Type: text/plain; charset=\"utf-8\"\n", $_POST["cc"], $user.", ".$_POST["bcc"], get_setting("name")." <$user>");
 	$_SESSION["headers"] = "";
 ?>
 <h2>Message Sent</h2>
