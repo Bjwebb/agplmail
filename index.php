@@ -279,12 +279,12 @@ if ($_GET['do'] == "listaction" || $_GET['do'] == "messaction") {
 	elseif ($_GET['type'] == "arc") {
 		foreach ($selection as $convo) {
 			foreach ($convos[$convo] as $msgno) {
-				if ($result = mysql_query("SELECT * FROM `".$db_prefix."mess` WHERE msgno=$msgno",$con)); else die(mysql_error());
+				if ($result = mysql_query("SELECT * FROM `".$db_prefix."mess` WHERE account='$user' AND msgno=$msgno",$con)); else die(mysql_error());
 				if (mysql_fetch_array($result)) {
-					if (mysql_query("UPDATE `".$db_prefix."mess` SET archived=true WHERE msgno=$msgno", $con)); else die(mysql_error());
+					if (mysql_query("UPDATE `".$db_prefix."mess` SET archived=true WHERE account='$user' AND msgno=$msgno", $con)); else die(mysql_error());
 				}
 				else {
-					if (mysql_query("INSERT INTO `".$db_prefix."mess` (msgno, archived) VALUES($msgno, true)", $con)); else die(mysql_error());
+					if (mysql_query("INSERT INTO `".$db_prefix."mess` (account, msgno, archived) VALUES('$user', $msgno, true)", $con)); else die(mysql_error());
 				}
 			}
 		}
@@ -293,7 +293,7 @@ if ($_GET['do'] == "listaction" || $_GET['do'] == "messaction") {
 	elseif ($_GET['type'] == "unarc") {
 		foreach ($selection as $convo) {
 			foreach ($convos[$convo] as $msgno) {
-				if (mysql_query("UPDATE `".$db_prefix."mess` SET archived=false WHERE msgno=$msgno", $con)); else die(mysql_error());
+				if (mysql_query("UPDATE `".$db_prefix."mess` SET archived=false WHERE account='$user' AND msgno=$msgno", $con)); else die(mysql_error());
 			}
 		}
 		$notif = sizeof($selection)." message".nice_s(sizeof($selection))." returned to inbox";
@@ -334,14 +334,14 @@ if ($_GET['do'] == "messaction") {
 }
 
 $archived = array();
-if ($result = mysql_query("SELECT * FROM `".$db_prefix."mess`",$con)); else die(mysql_error());
+if ($result = mysql_query("SELECT * FROM `".$db_prefix."mess` WHERE account='$user'",$con)); else die(mysql_error());
 while ($row = mysql_fetch_array($result)) {
 	$archived[$row["msgno"]] = $row['archived'];
 }
 
 if ($_GET['do'] == "send") {
 #	print_r($_POST);
-	imap_mail($_POST["to"], $_POST["subject"], $_POST["content"], $_SESSION["headers"]."Content-Type: text/plain; charset=\"utf-8\"\n", $_POST["cc"], $user.", ".$_POST["bcc"], $user);
+	imap_mail($_POST["to"], $_POST["subject"], $_POST["content"], $_SESSION["headers"]."Content-Type: text/plain; charset=\"utf-8\"\n", $_POST["cc"], $user.", ".$_POST["bcc"], "Ben Webb <$user>");
 	$_SESSION["headers"] = "";
 ?>
 <h2>Message Sent</h2>
