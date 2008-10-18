@@ -461,13 +461,12 @@ else {
 	}
 </script>
 <?php
-		echo "<table width=\"100%\" id=\"list\"><form name=\"form\">";
-		echo "<tr class=\"header\"><td colspan=\"4\">".actions()."<br/>Select: <a href=\"javascript:selall()\">All</a>, <a href=\"javascript:selnone()\">None</a>, <a href=\"javascript:selread()\">Read</a>, <a href=\"javascript:selunread()\">Unread</a></td></tr>";
 		$threadlen = 0;
 		$convos = array();
 		$i = 0;
 		$seen = true;
 		$allarchived = true;
+		$messrows = array();
 		foreach ($threads as $key => $val) {
 			$tree = explode('.', $key);
 			if ($tree[1] == 'num' && $val != 0) {
@@ -484,7 +483,7 @@ else {
 					if ( (!$allarchived && $view == "inbox") || ($allarchived && $view == "arc") ) {
 						if ($seen) $class = "read";
 						else $class = "unread";
-						echo "<tr class=\"$class\" id=\"mess$i\"><td><input type=\"checkbox\" id=\"tick$i\" name=\"check_$class\" onchange=\"javascript:hili($i,'$class')\"></td><td width=\"30%\">".$header->fromaddress." (".$threadlen.")</td><td><a href=\"index.php?do=message&convo=$i\" width=\"55%\">".nice_subject($header->subject)."</a></td><td width=\"15%\">".nice_date($header->udate)."</td></tr>\n";
+						$messrows[] = "<tr class=\"$class\" id=\"mess$i\"><td><input type=\"checkbox\" id=\"tick$i\" name=\"check_$class\" onchange=\"javascript:hili($i,'$class')\"></td><td width=\"30%\">".$header->fromaddress." (".$threadlen.")</td><td><a href=\"index.php?do=message&convo=$i\" width=\"55%\">".nice_subject($header->subject)."</a></td><td width=\"15%\">".nice_date($header->udate)."</td></tr>\n";
 					}
 					$i++;
 				}
@@ -492,6 +491,28 @@ else {
 				$seen = true;
 				$allarchived = true;
 			}
+		}
+		$messrows = array_reverse($messrows);
+		if ($_GET['pos'])
+			$liststart = $_GET['pos'];
+		else
+			$liststart = 0;
+		$listlen = 50;
+		if (sizeof($messrows) > $liststart+$listlen) {
+			$listend = $liststart+$listlen;
+			$next = true;
+		}
+		else {
+			$listend = sizeof($messrows);
+		}
+		echo "<table width=\"100%\" id=\"list\"><form name=\"form\">";
+		echo "<tr class=\"header\"><td colspan=\"3\">".actions()."<br/>Select: <a href=\"javascript:selall()\">All</a>, <a href=\"javascript:selnone()\">None</a>, <a href=\"javascript:selread()\">Read</a>, <a href=\"javascript:selunread()\">Unread</a></td>";
+		echo "<td>".($liststart+1)." - $listend of ".sizeof($messrows)."<br/>";
+		if ($liststart > 0) echo "<a href=\"index.php?do=list&view=$view&pos=".($liststart-$listlen)."\">&larr;Prev</a> ";
+		if ($next) echo "<a href=\"index.php?do=list&view=$view&pos=$listend\">Next&rarr;</a>";
+		echo "</td></tr>";
+		for ($i=$liststart; $i<$listend; $i++) {
+			echo $messrows[$i];
 		}
 		echo "</form></table>";
 		$_SESSION['convos'] = $convos;
