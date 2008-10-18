@@ -19,6 +19,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 include "config.php";
 
+$me = $_SERVER['SCRIPT_NAME'];
+
 if ($_GET['do'] == "src") {
 	header('Content-type: text/plain');
 	$myself = file($_SERVER['SCRIPT_FILENAME']);
@@ -65,7 +67,7 @@ function indent($mess) {
 	return "> ".ereg_replace("\n","\n> ",$mess);
 }
 function enewtext($to, $cc, $bcc, $sub, $con) {
-	return "<form method=\"post\" action=\"index.php?do=send\" id=\"form\">
+	return "<form method=\"post\" action=\"$me?do=send\" id=\"form\">
 	To: <input name=\"to\" value=\"$to\"/><br/>
 	CC: <input name=\"cc\" value=\"$cc\"/><br/>
 	BCC: <input name=\"bcc\" value=\"$bcc\"/><br/>
@@ -219,13 +221,13 @@ tr.header {
 
 if ($_GET['do'] == logout) {
 	session_destroy(); ?>
-<h2>Logged out</h2> <a href="index.php">Return to login</a>?
+<h2>Logged out</h2> <a href="<?php echo $me ?>">Return to login</a>?
 <?php }
 elseif (!$_SESSION['username']) {
 ?>
 
 <h2>Login</h2>
-<form method="post" action="index.php">
+<form method="post" action="<?php echo $me ?>">
 	User: <input name="username"></input><br/>
 	Password: <input name="password" type="password"></input><br/>
 	<button type="submit">Submit</button>
@@ -238,26 +240,26 @@ $mbox = @imap_open("{".$server."/imap/notls}".$folder, $user, $pass);
 
 if (!$mbox) {
 	session_destroy(); ?>
-<h2>Sorry login failed</h2> <a href="index.php">Try again</a>?
+<h2>Sorry login failed</h2> <a href="<?php echo $me ?>">Try again</a>?
 <?php }
 else {
 
-echo "<div id=\"intro\">Welcome ".$uname." it is ".date("H:i").". <a href=\"index.php?do=logout\">Logout</a>?</div>";
+echo "<div id=\"intro\">Welcome ".$uname." it is ".date("H:i").". <a href=\"$me?do=logout\">Logout</a>?</div>";
 
 echo "<div id=\"sidebar\">";
-echo "<a href=\"index.php?do=new\">New Email</a>";
+echo "<a href=\"$me?do=new\">New Email</a>";
 echo "<h2>Folders</h2>\n";
 /*
 $folders = imap_list($mbox, "{".$server."}", "*");
 
 foreach ($folders as $f) {
 	$f = ereg_replace("\{.*\}","",$f);
-    echo "<a href=\"index.php?do=list&folder=".$f."\">".nice_folder($f)."</a><br />\n";
+    echo "<a href=\"$me?do=list&folder=".$f."\">".nice_folder($f)."</a><br />\n";
 }
 */
 ?>
-<a href="index.php?do=list&view=inbox">Inbox</a><br/>
-<a href="index.php?do=list&view=arc">Archive</a><br/>
+<a href="<?php echo $me ?>?do=list&view=inbox">Inbox</a><br/>
+<a href="<?php echo $me ?>?do=list&view=arc">Archive</a><br/>
 <?php
 
 echo "</div><div id=\"main\">";
@@ -343,7 +345,7 @@ if ($_GET['do'] == "send") {
 	$_SESSION["headers"] = "";
 ?>
 <h2>Message Sent</h2>
-<a href="index.php">Return to inbox</a>?
+<a href="<?php echo $me ?>">Return to inbox</a>?
 <?php }
 elseif ($_GET['do'] == "new") {
 	echo "<h2>New Email</h2>";
@@ -360,11 +362,11 @@ elseif ($_GET['do'] == "message") {
 ?>
 <script>
 function moreact(value) {
-	location.href = "index.php?do=messaction&type="+value+"&range="+"<?php echo $convo ?>";
+	location.href = "<?php echo $me ?>?do=messaction&type="+value+"&range="+"<?php echo $convo ?>";
 }
 </script>	
 <?php
-	echo "<a href=\"index.php?do=list\">&laquo; Back to ".nice_view($view)."</a> ".actions()."<br>";
+	echo "<a href=\"$me?do=list\">&laquo; Back to ".nice_view($view)."</a> ".actions()."<br>";
 	$header = imap_headerinfo($mbox,$convos[$convo][0]);
 	echo "<h2>".$header->subject."</h2>";
 	foreach ($convos[$convo] as $key => $msgno) {
@@ -398,7 +400,7 @@ else {
 #	echo "There are ".$status->messages." messages in the ".nice_inf($folder).".<br><br>\n";
 	if ($status->messages != 0) {
 		$threads = imap_thread($mbox);
-		$self = "index.php?do=list&folder=$folder";
+		$self = "$me?do=list&folder=$folder";
 ?>
 <script language="javascript">
 	function hili(num,base) {
@@ -456,7 +458,7 @@ else {
 			alert("Please select one or more messages.");
 		}
 		else {
-			location.href = "index.php?do=listaction&type="+value+"&range="+range;
+			location.href = "<?php echo $me ?>?do=listaction&type="+value+"&range="+range;
 		}
 	}
 </script>
@@ -483,7 +485,7 @@ else {
 					if ( (!$allarchived && $view == "inbox") || ($allarchived && $view == "arc") ) {
 						if ($seen) $class = "read";
 						else $class = "unread";
-						$messrows[] = "<tr class=\"$class\" id=\"mess$i\"><td><input type=\"checkbox\" id=\"tick$i\" name=\"check_$class\" onchange=\"javascript:hili($i,'$class')\"></td><td width=\"30%\">".$header->fromaddress." (".$threadlen.")</td><td><a href=\"index.php?do=message&convo=$i\" width=\"55%\">".nice_subject($header->subject)."</a></td><td width=\"15%\">".nice_date($header->udate)."</td></tr>\n";
+						$messrows[] = "<tr class=\"$class\" id=\"mess$i\"><td><input type=\"checkbox\" id=\"tick$i\" name=\"check_$class\" onchange=\"javascript:hili($i,'$class')\"></td><td width=\"30%\">".$header->fromaddress." (".$threadlen.")</td><td><a href=\"$me?do=message&convo=$i\" width=\"55%\">".nice_subject($header->subject)."</a></td><td width=\"15%\">".nice_date($header->udate)."</td></tr>\n";
 					}
 					$i++;
 				}
@@ -508,8 +510,8 @@ else {
 		echo "<table width=\"100%\" id=\"list\"><form name=\"form\">";
 		echo "<tr class=\"header\"><td colspan=\"3\">".actions()."<br/>Select: <a href=\"javascript:selall()\">All</a>, <a href=\"javascript:selnone()\">None</a>, <a href=\"javascript:selread()\">Read</a>, <a href=\"javascript:selunread()\">Unread</a></td>";
 		echo "<td>".($liststart+1)." - $listend of ".sizeof($messrows)."<br/>";
-		if ($liststart > 0) echo "<a href=\"index.php?do=list&view=$view&pos=".($liststart-$listlen)."\">&larr;Prev</a> ";
-		if ($next) echo "<a href=\"index.php?do=list&view=$view&pos=$listend\">Next&rarr;</a>";
+		if ($liststart > 0) echo "<a href=\"$me?do=list&view=$view&pos=".($liststart-$listlen)."\">&larr;Prev</a> ";
+		if ($next) echo "<a href=\"$me?do=list&view=$view&pos=$listend\">Next&rarr;</a>";
 		echo "</td></tr>";
 		for ($i=$liststart; $i<$listend; $i++) {
 			echo $messrows[$i];
@@ -534,7 +536,7 @@ imap_close($mbox);
 
 } } ?>
 
-<br/><br/>AGPLMail is released under the <a href="http://www.fsf.org/licensing/licenses/agpl-3.0.html">AGPL v3</a>. Care to see the <a href="index.php?do=src">Source Code</a>?
+<br/><br/>AGPLMail is released under the <a href="http://www.fsf.org/licensing/licenses/agpl-3.0.html">AGPL v3</a>. Care to see the <a href="<?php echo $me ?>?do=src">Source Code</a>?
 
 </body>
 </html>
