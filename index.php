@@ -279,8 +279,8 @@ foreach ($folders as $f) {
 }
 */
 ?>
-<a href="<?php echo $me ?>?do=list&view=inbox">Inbox</a><br/>
-<a href="<?php echo $me ?>?do=list&view=arc">Archive</a><br/>
+<a href="<?php echo $me ?>?do=list&pos=0&view=inbox">Inbox</a><br/>
+<a href="<?php echo $me ?>?do=list&pos=0&view=arc">Archive</a><br/>
 <br/>
 <a href="<?php echo $me ?>?do=settings">Settings</a><br/>
 <?php
@@ -530,10 +530,16 @@ else {
 			}
 		}
 		$messrows = array_reverse($messrows);
-		if ($_GET['pos'])
+		if ($_GET['pos']) {
 			$liststart = $_GET['pos'];
-		else
+			$_SESSION['pos'] = $_GET['pos'];
+		}
+		elseif ($_SESSION['pos']) {
+			$liststart = $_SESSION['pos'];
+		}
+		else {
 			$liststart = 0;
+		}
 		$listlen = 50;
 		if (sizeof($messrows) > $liststart+$listlen) {
 			$listend = $liststart+$listlen;
