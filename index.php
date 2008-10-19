@@ -36,6 +36,8 @@ function nice_date($indate) {
 function nice_view($f) {
 	if ($f == "inbox") return "Inbox";
 	elseif ($f == "arc") return "Archive";
+	elseif ($f == "star") return "Starred";
+	elseif ($f == "bin") return "Bin";
 	else return $f;
 }
 function nice_addr_list($list) {
@@ -82,7 +84,8 @@ function actions() {
 		$atext = "<button type=\"button\" onClick=\"javascript:moreact('arc')\">Archive</button>";
 	else
 		$atext = "<button type=\"button\" onClick=\"javascript:moreact('unarc')\">Move to Inbox</button>";
-	$atext .= " <button type=\"button\" onClick=\"javascript:moreact('del')\">Delete</button> <select><option>More Actions</option><option onClick=\"javascript:moreact('read')\">Mark as Read</option><option onClick=\"javascript:moreact('unread')\">Mark as Unread</option></select> <a href=\"$self\">Refresh</a>";
+	$atext .= " <button type=\"button\" onClick=\"javascript:moreact('del')\">Delete</button>";
+	$atext .= " <select><option>More Actions</option><option onClick=\"javascript:moreact('read')\">Mark as Read</option><option onClick=\"javascript:moreact('unread')\">Mark as Unread</option><option onClick=\"javascript:moreact('star')\">Add star</option><option onClick=\"javascript:moreact('unstar')\">Remove star</option></select> <a href=\"$self\">Refresh</a>";
 	return $atext;
 }
 function add_setting($name, $value) {
@@ -105,6 +108,12 @@ function get_setting($name) {
 	if ($row=mysql_fetch_array($result)) {
 		return $row["value"];
 	}
+}
+function starpic($star, $convo) {
+	if ($star)
+		return "<a href=\"$me?do=listaction&type=unstar&range=$convo\">[*]</a>";
+	else
+		return "<a href=\"$me?do=listaction&type=star&range=$convo\">[ ]</a>";
 }
 
 $con = mysql_connect($db_host,$db_name,$db_pass);
@@ -281,6 +290,8 @@ foreach ($folders as $f) {
 ?>
 <a href="<?php echo $me ?>?do=list&pos=0&view=inbox">Inbox</a><br/>
 <a href="<?php echo $me ?>?do=list&pos=0&view=arc">Archive</a><br/>
+<a href="<?php echo $me ?>?do=list&pos=0&view=star">Starred</a><br/>
+<a href="<?php echo $me ?>?do=list&pos=0&view=bin">Bin</a><br/>
 <br/>
 <a href="<?php echo $me ?>?do=settings">Settings</a><br/>
 <?php
@@ -338,6 +349,14 @@ if ($_GET['do'] == "listaction" || $_GET['do'] == "messaction") {
 		if ($_GET['type'] == "unread") {
 			imap_clearflag_full($mbox,$msglist,"\\Seen");
 			$notif = sizeof($selection)." message".nice_s(sizeof($selection))." marked as unread.";
+		}
+		if ($_GET['type'] == "star") {
+			imap_setflag_full($mbox,$msglist,"\\Flagged");
+			$notif = sizeof($selection)." message".nice_s(sizeof($selection))." starred.";
+		}
+		if ($_GET['type'] == "unstar") {
+			imap_clearflag_full($mbox,$msglist,"\\Flagged");
+			$notif = sizeof($selection)." message".nice_s(sizeof($selection))." unstarred.";
 		}
 	}
 }
@@ -502,6 +521,7 @@ else {
 		$convos = array();
 		$i = 0;
 		$seen = true;
+		$star = false;
 		$allarchived = true;
 		$messrows = array();
 		foreach ($threads as $key => $val) {
@@ -509,6 +529,7 @@ else {
 			if ($tree[1] == 'num' && $val != 0) {
 				$tmpheader = imap_headerinfo($mbox, $val);
 				if ($tmpheader->Unseen == "U" || $tmpheader->Recent == "N") $seen = false;
+				if ($tmpheader->Flagged == "F") $star = true;
 				if($threadlen == 0) {
 					$header = $tmpheader;
 				}
@@ -517,20 +538,21 @@ else {
 				$convos[$i][] = $val;
 			} elseif ($tree[1] == 'branch') {
 				if ($threadlen != 0) {
-					if ( (!$allarchived && $view == "inbox") || ($allarchived && $view == "arc") ) {
+					if ( (!$allarchived && $view == "inbox") || ($allarchived && $view == "arc") || ($star && $view == "star") ) {
 						if ($seen) $class = "read";
 						else $class = "unread";
-						$messrows[] = "<tr class=\"$class\" id=\"mess$i\"><td><input type=\"checkbox\" id=\"tick$i\" name=\"check_$class\" onchange=\"javascript:hili($i,'$class')\"></td><td width=\"30%\">".$header->fromaddress." (".$threadlen.")</td><td><a href=\"$me?do=message&convo=$i\" width=\"55%\">".nice_subject($header->subject)."</a></td><td width=\"15%\">".nice_date($header->udate)."</td></tr>\n";
+						$messrows[] = "<tr class=\"$class\" id=\"mess$i\"><td><input type=\"checkbox\" id=\"tick$i\" name=\"check_$class\" onchange=\"javascript:hili($i,'$class')\"></td><td>".starpic($star,$i)."</td><td width=\"30%\">".$header->fromaddress." (".$threadlen.")</td><td><a href=\"$me?do=message&convo=$i\" width=\"55%\">".nice_subject($header->subject)."</a></td><td width=\"15%\">".nice_date($header->udate)."</td></tr>\n";
 					}
 					$i++;
 				}
 				$threadlen = 0;
 				$seen = true;
+				$star = false;
 				$allarchived = true;
 			}
 		}
 		$messrows = array_reverse($messrows);
-		if ($_GET['pos']) {
+		if ($_GET['pos'] != "") {
 			$liststart = $_GET['pos'];
 			$_SESSION['pos'] = $_GET['pos'];
 		}
@@ -549,7 +571,7 @@ else {
 			$listend = sizeof($messrows);
 		}
 		echo "<table width=\"100%\" id=\"list\"><form name=\"form\">";
-		echo "<tr class=\"header\"><td colspan=\"3\">".actions()."<br/>Select: <a href=\"javascript:selall()\">All</a>, <a href=\"javascript:selnone()\">None</a>, <a href=\"javascript:selread()\">Read</a>, <a href=\"javascript:selunread()\">Unread</a></td>";
+		echo "<tr class=\"header\"><td colspan=\"4\">".actions()."<br/>Select: <a href=\"javascript:selall()\">All</a>, <a href=\"javascript:selnone()\">None</a>, <a href=\"javascript:selread()\">Read</a>, <a href=\"javascript:selunread()\">Unread</a></td>";
 		echo "<td>".($liststart+1)." - $listend of ".sizeof($messrows)."<br/>";
 		if ($liststart > 0) echo "<a href=\"$me?do=list&view=$view&pos=".($liststart-$listlen)."\">&larr;Prev</a> ";
 		if ($next) echo "<a href=\"$me?do=list&view=$view&pos=$listend\">Next&rarr;</a>";
