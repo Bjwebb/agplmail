@@ -82,9 +82,12 @@ function actions() {
 	global $view;
 	if ($view == "inbox")
 		$atext = "<button type=\"button\" onClick=\"javascript:moreact('arc')\">Archive</button>";
-	else
+	elseif ($view == "arc")
 		$atext = "<button type=\"button\" onClick=\"javascript:moreact('unarc')\">Move to Inbox</button>";
-	$atext .= " <button type=\"button\" onClick=\"javascript:moreact('del')\">Delete</button>";
+	if ($view == "bin")
+		$atext .= " <button type=\"button\" onClick=\"javascript:moreact('realdel')\">Delete Forever</button> <button type=\"button\" onClick=\"javascript:moreact('undel')\">Restore</button>";
+	else
+		$atext .= " <button type=\"button\" onClick=\"javascript:moreact('del')\">Delete</button>";
 	$atext .= " <select><option>More Actions</option><option onClick=\"javascript:moreact('read')\">Mark as Read</option><option onClick=\"javascript:moreact('unread')\">Mark as Unread</option><option onClick=\"javascript:moreact('star')\">Add star</option><option onClick=\"javascript:moreact('unstar')\">Remove star</option></select> <a href=\"$self\">Refresh</a>";
 	return $atext;
 }
@@ -103,7 +106,7 @@ function add_setting($name, $value) {
 function get_setting($name) {
 	global $con;
 	global $db_prefix;
-	global $user;
+	global $user;$atext .= " <button type=\"button\" onClick=\"javascript:moreact('del')\">Delete</button>";
 	if ($result = mysql_query("SELECT * FROM `".$db_prefix."settings` WHERE account='$user' AND name='$name'",$con)); else die(mysql_error());
 	if ($row=mysql_fetch_array($result)) {
 		return $row["value"];
@@ -114,6 +117,27 @@ function starpic($star, $convo) {
 		return "<a href=\"$me?do=listaction&type=unstar&range=$convo\">[*]</a>";
 	else
 		return "<a href=\"$me?do=listaction&type=star&range=$convo\">[ ]</a>";
+}
+function set_mess($msgno, $name, $value) {
+	global $con;
+	global $db_prefix;
+	global $user;
+	if ($result = mysql_query("SELECT * FROM `".$db_prefix."mess` WHERE account='$user' AND msgno=$msgno",$con)); else die(mysql_error());
+	if (mysql_fetch_array($result)) {
+		if (mysql_query("UPDATE `".$db_prefix."mess` SET $name=$value WHERE account='$user' AND msgno=$msgno", $con)); else die(mysql_error());
+	}
+	else {
+		if (mysql_query("INSERT INTO `".$db_prefix."mess` (account, msgno, $name) VALUES('$user', $msgno, $value)", $con)); else die(mysql_error());
+	}
+}
+function get_mess($msgno, $name) {
+	global $con;
+	global $db_prefix;
+	global $user;
+	if ($result = mysql_query("SELECT * FROM `".$db_prefix."mess` WHERE account='$user' AND msgno=$msgno",$con)); else die(mysql_error());
+	if ($row=mysql_fetch_array($result)) {
+		return $row[$name];
+	}
 }
 
 $con = mysql_connect($db_host,$db_name,$db_pass);
@@ -298,10 +322,26 @@ foreach ($folders as $f) {
 
 echo "</div><div id=\"main\">";
 
+function do_action($name,$value,$text) {
+	global $selection;
+	global $convo;
+	global $convos;
+	foreach ($selection as $convo) {
+		foreach ($convos[$convo] as $msgno) {
+			set_mess($msgno, $name, $value);
+		}
+	}
+	$notif = sizeof($selection)." message".nice_s(sizeof($selection))." ".$text;
+}
+
 if ($_GET['do'] == "listaction" || $_GET['do'] == "messaction") {
 	$convos = $_SESSION['convos'];
 	$selection = split(",",$_GET['range']);
-	if ($_GET['type'] == "del") {
+	if ($_GET['type'] == "del")
+		do_action("deleted", 1 ,"sent to the bin.");
+	elseif ($_GET['type'] == "undel")
+		do_action("deleted", 0, "restored.");
+	elseif ($_GET['type'] == "realdel") {
 		foreach ($selection as $convo) {
 			foreach ($convos[$convo] as $msgno) {
 				imap_delete($mbox,$msgno);
@@ -311,26 +351,10 @@ if ($_GET['do'] == "listaction" || $_GET['do'] == "messaction") {
 		$notif = sizeof($selection)." message".nice_s(sizeof($selection))." deleted FOREVER.";
 	}
 	elseif ($_GET['type'] == "arc") {
-		foreach ($selection as $convo) {
-			foreach ($convos[$convo] as $msgno) {
-				if ($result = mysql_query("SELECT * FROM `".$db_prefix."mess` WHERE account='$user' AND msgno=$msgno",$con)); else die(mysql_error());
-				if (mysql_fetch_array($result)) {
-					if (mysql_query("UPDATE `".$db_prefix."mess` SET archived=true WHERE account='$user' AND msgno=$msgno", $con)); else die(mysql_error());
-				}
-				else {
-					if (mysql_query("INSERT INTO `".$db_prefix."mess` (account, msgno, archived) VALUES('$user', $msgno, true)", $con)); else die(mysql_error());
-				}
-			}
-		}
-		$notif = sizeof($selection)." message".nice_s(sizeof($selection))." sent to archive";
+		do_action("archived", 1, "sent to archive");
 	}
 	elseif ($_GET['type'] == "unarc") {
-		foreach ($selection as $convo) {
-			foreach ($convos[$convo] as $msgno) {
-				if (mysql_query("UPDATE `".$db_prefix."mess` SET archived=false WHERE account='$user' AND msgno=$msgno", $con)); else die(mysql_error());
-			}
-		}
-		$notif = sizeof($selection)." message".nice_s(sizeof($selection))." returned to inbox";
+		do_action("archived", 0, "returned to inbox");
 	}
 	else {
 		$msglist = "";
@@ -346,15 +370,15 @@ if ($_GET['do'] == "listaction" || $_GET['do'] == "messaction") {
 			imap_setflag_full($mbox,$msglist,"\\Seen");
 			$notif = sizeof($selection)." message".nice_s(sizeof($selection))." marked as read.";
 		}
-		if ($_GET['type'] == "unread") {
+		elseif ($_GET['type'] == "unread") {
 			imap_clearflag_full($mbox,$msglist,"\\Seen");
 			$notif = sizeof($selection)." message".nice_s(sizeof($selection))." marked as unread.";
 		}
-		if ($_GET['type'] == "star") {
+		elseif ($_GET['type'] == "star") {
 			imap_setflag_full($mbox,$msglist,"\\Flagged");
 			$notif = sizeof($selection)." message".nice_s(sizeof($selection))." starred.";
 		}
-		if ($_GET['type'] == "unstar") {
+		elseif ($_GET['type'] == "unstar") {
 			imap_clearflag_full($mbox,$msglist,"\\Flagged");
 			$notif = sizeof($selection)." message".nice_s(sizeof($selection))." unstarred.";
 		}
@@ -362,23 +386,17 @@ if ($_GET['do'] == "listaction" || $_GET['do'] == "messaction") {
 }
 
 if ($_GET['do'] == "messaction") {
-	if ($_GET['type'] != "del" && $_GET['type'] != "read" && $_GET['type'] != "unread") {
+	if ($_GET['type'] == "star" || $_GET['type'] != "unstar") {
 		$_GET['do'] = "message";
 	}
-	if ($_GET['type'] == "arc") {
+/*	if ($_GET['type'] == "arc") {
 		$view = "arc";
 		$_SESSION['view'] = "arc";
 	}
 	if ($_GET['type'] == "unarc") {
 		$view = "inbox";
 		$_SESSION['view'] = "inbox";
-	}
-}
-
-$archived = array();
-if ($result = mysql_query("SELECT * FROM `".$db_prefix."mess` WHERE account='$user'",$con)); else die(mysql_error());
-while ($row = mysql_fetch_array($result)) {
-	$archived[$row["msgno"]] = $row['archived'];
+	} */
 }
 
 if ($_GET['do'] == "settings") {
@@ -523,6 +541,7 @@ else {
 		$seen = true;
 		$star = false;
 		$allarchived = true;
+		$del = false;
 		$messrows = array();
 		foreach ($threads as $key => $val) {
 			$tree = explode('.', $key);
@@ -533,15 +552,17 @@ else {
 				if($threadlen == 0) {
 					$header = $tmpheader;
 				}
-				if ($archived[$val] != 1) $allarchived = false;
+				if (get_mess($val, "archived") != 1) $allarchived = false;
+				if (get_mess($val, "deleted") == 1) $del = true;
 				$threadlen++;
 				$convos[$i][] = $val;
 			} elseif ($tree[1] == 'branch') {
 				if ($threadlen != 0) {
-					if ( (!$allarchived && $view == "inbox") || ($allarchived && $view == "arc") || ($star && $view == "star") ) {
+					if ( ( ((!$allarchived && $view=="inbox") || ($allarchived && $view=="arc") || ($star && $view=="star")) && !$del )
+					|| ( $del && $view=="bin" )  ) {
 						if ($seen) $class = "read";
 						else $class = "unread";
-						$messrows[] = "<tr class=\"$class\" id=\"mess$i\"><td><input type=\"checkbox\" id=\"tick$i\" name=\"check_$class\" onchange=\"javascript:hili($i,'$class')\"></td><td>".starpic($star,$i)."</td><td width=\"30%\">".$header->fromaddress." (".$threadlen.")</td><td><a href=\"$me?do=message&convo=$i\" width=\"55%\">".nice_subject($header->subject)."</a></td><td width=\"15%\">".nice_date($header->udate)."</td></tr>\n";
+						$messrows[] = "<tr class=\"$class\" id=\"mess$i\"><td width=\"3%\"><input type=\"checkbox\" id=\"tick$i\" name=\"check_$class\" onchange=\"javascript:hili($i,'$class')\"></td><td width=\"3%\">".starpic($star,$i)."</td><td width=\"30%\">".$header->fromaddress." (".$threadlen.")</td><td><a href=\"$me?do=message&convo=$i\" width=\"55%\">".nice_subject($header->subject)."</a></td><td width=\"15%\">".nice_date($header->udate)."</td></tr>\n";
 					}
 					$i++;
 				}
@@ -549,6 +570,7 @@ else {
 				$seen = true;
 				$star = false;
 				$allarchived = true;
+				$del = false;
 			}
 		}
 		$messrows = array_reverse($messrows);

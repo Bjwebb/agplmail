@@ -9,6 +9,7 @@
 CREATE TABLE `agplmail_mess` (
   `msgno` mediumint(9) NOT NULL,
   `archived` tinyint(1) NOT NULL,
+  `deleted` tinyint(1) NOT NULL,
   `tags` mediumtext NOT NULL,
   `account` text NOT NULL
 ) ENGINE=MyISAM DEFAULT CHARSET=latin1;
