@@ -386,7 +386,7 @@ if ($_GET['do'] == "listaction" || $_GET['do'] == "messaction") {
 }
 
 if ($_GET['do'] == "messaction") {
-	if ($_GET['type'] == "star" || $_GET['type'] != "unstar") {
+	if ($_GET['type'] == "star" || $_GET['type'] == "unstar") {
 		$_GET['do'] = "message";
 	}
 /*	if ($_GET['type'] == "arc") {
