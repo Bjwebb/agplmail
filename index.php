@@ -118,23 +118,23 @@ function starpic($star, $convo) {
 	else
 		return "<a href=\"$me?do=listaction&type=star&range=$convo\">[ ]</a>";
 }
-function set_mess($msgno, $name, $value) {
+function set_mess($messid, $name, $value) {
 	global $con;
 	global $db_prefix;
 	global $user;
-	if ($result = mysql_query("SELECT * FROM `".$db_prefix."mess` WHERE account='$user' AND msgno=$msgno",$con)); else die(mysql_error());
+	if ($result = mysql_query("SELECT * FROM `".$db_prefix."mess` WHERE account='$user' AND messid='$messid'",$con)); else die(mysql_error());
 	if (mysql_fetch_array($result)) {
-		if (mysql_query("UPDATE `".$db_prefix."mess` SET $name=$value WHERE account='$user' AND msgno=$msgno", $con)); else die(mysql_error());
+		if (mysql_query("UPDATE `".$db_prefix."mess` SET $name=$value WHERE account='$user' AND messid='$messid'", $con)); else die(mysql_error());
 	}
 	else {
-		if (mysql_query("INSERT INTO `".$db_prefix."mess` (account, msgno, $name) VALUES('$user', $msgno, $value)", $con)); else die(mysql_error());
+		if (mysql_query("INSERT INTO `".$db_prefix."mess` (account, messid, $name) VALUES('$user', '$messid', $value)", $con)); else die(mysql_error());
 	}
 }
-function get_mess($msgno, $name) {
+function get_mess($messid, $name) {
 	global $con;
 	global $db_prefix;
 	global $user;
-	if ($result = mysql_query("SELECT * FROM `".$db_prefix."mess` WHERE account='$user' AND msgno=$msgno",$con)); else die(mysql_error());
+	if ($result = mysql_query("SELECT * FROM `".$db_prefix."mess` WHERE account='$user' AND messid='$messid'",$con)); else die(mysql_error());
 	if ($row=mysql_fetch_array($result)) {
 		return $row[$name];
 	}
@@ -326,9 +326,11 @@ function do_action($name,$value,$text) {
 	global $selection;
 	global $convo;
 	global $convos;
+	global $mbox;
 	foreach ($selection as $convo) {
 		foreach ($convos[$convo] as $msgno) {
-			set_mess($msgno, $name, $value);
+			$header = imap_headerinfo($mbox, $msgno);
+			set_mess($header->message_id, $name, $value);
 		}
 	}
 	$notif = sizeof($selection)." message".nice_s(sizeof($selection))." ".$text;
@@ -469,6 +471,7 @@ else {
 	}
 
 	$status = imap_status($mbox, "{".$server."}".$folder, SA_ALL);
+#	print_r($status);
 #	echo "There are ".$status->messages." messages in the ".nice_inf($folder).".<br><br>\n";
 	if ($status->messages != 0) {
 		$threads = imap_thread($mbox);
@@ -552,8 +555,8 @@ else {
 				if($threadlen == 0) {
 					$header = $tmpheader;
 				}
-				if (get_mess($val, "archived") != 1) $allarchived = false;
-				if (get_mess($val, "deleted") == 1) $del = true;
+				if (get_mess($tmpheader->message_id, "archived") != 1) $allarchived = false;
+				if (get_mess($tmpheader->message_id, "deleted") == 1) $del = true;
 				$threadlen++;
 				$convos[$i][] = $val;
 			} elseif ($tree[1] == 'branch') {
