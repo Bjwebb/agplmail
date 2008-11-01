@@ -200,7 +200,7 @@ a {
 	color: blue;
 }
 h1, h2 {
-	font-family: serif;S
+	font-family: serif;
 }
 h1 {
 	display: inline;
@@ -278,6 +278,7 @@ if ($_GET['do'] == logout) {
 <h2>Logged out</h2> <a href="<?php echo $me ?>">Return to login</a>?
 <?php }
 elseif (!$_SESSION['username']) {
+echo "<br/>".$customhome;
 ?>
 
 <h2>Login</h2>
@@ -415,12 +416,17 @@ if ($_GET['do'] == "settings") {
 }
 elseif ($_GET['do'] == "send") {
 #	print_r($_POST);
-	imap_mail($_POST["to"], $_POST["subject"], $_POST["content"], $_SESSION["headers"]."Content-Type: text/plain; charset=\"utf-8\"\n", $_POST["cc"], $user.", ".$_POST["bcc"], get_setting("name")." <$user>");
-	$_SESSION["headers"] = "";
+#	if ($_SESSION['username'] == "demo") {
+#		echo "<h2>This is a Demo</h2>Sorry, sending is disabled.";
+#		$_SESSION["headers"] = "";
+#	}
+#	else {
+		imap_mail($_POST["to"], $_POST["subject"], $_POST["content"], $_SESSION["headers"]."Content-Type: text/plain; charset=\"utf-8\"\n", $_POST["cc"], $user.", ".$_POST["bcc"], get_setting("name")." <$user>");
+		$_SESSION["headers"] = "";
 ?>
 <h2>Message Sent</h2>
 <a href="<?php echo $me ?>">Return to inbox</a>?
-<?php }
+<?php } #}
 elseif ($_GET['do'] == "new") {
 	echo "<h2>New Email</h2>";
 	echo enewtext("","","","","");
@@ -476,6 +482,66 @@ else {
 	if ($status->messages != 0) {
 		$threads = imap_thread($mbox);
 		$self = "$me?do=list&folder=$folder";
+		$threadlen = 0;
+		$convos = array();
+		$i = 0;
+		$seen = true;
+		$star = false;
+		$allarchived = true;
+		$del = false;
+		$convorows = array();
+		$messrows = array();
+		foreach ($threads as $key => $val) {
+			$tree = explode('.', $key);
+			if ($tree[1] == 'num' && $val != 0) {
+				$tmpheader = imap_headerinfo($mbox, $val);
+				if ($tmpheader->Unseen == "U" || $tmpheader->Recent == "N") $seen = false;
+				if ($tmpheader->Flagged == "F") $star = true;
+				if($threadlen == 0) {
+					$header = $tmpheader;
+				}
+				if (get_mess($tmpheader->message_id, "archived") != 1) $allarchived = false;
+				if (get_mess($tmpheader->message_id, "deleted") == 1) $del = true;
+				$threadlen++;
+				$convos[$i][] = $val;
+			} elseif ($tree[1] == 'branch') {
+				if ($threadlen != 0) {
+					if ( ( ((!$allarchived && $view=="inbox") || ($allarchived && $view=="arc") || ($star && $view=="star")) && !$del )
+					|| ( $del && $view=="bin" )  ) {
+						if ($seen) $class = "read";
+						else $class = "unread";
+						$convorows[] = $i;
+						$messrows[] = "<tr class=\"$class\" id=\"mess$i\"><td width=\"3%\"><input type=\"checkbox\" id=\"tick$i\" name=\"check_$class\" onchange=\"javascript:hili($i,'$class')\"></td><td width=\"3%\">".starpic($star,$i)."</td><td width=\"30%\">".$header->fromaddress." (".$threadlen.")</td><td><a href=\"$me?do=message&convo=$i\" width=\"55%\">".nice_subject($header->subject)."</a></td><td width=\"15%\">".nice_date($header->udate)."</td></tr>\n";
+					}
+					$i++;
+				}
+				$threadlen = 0;
+				$seen = true;
+				$star = false;
+				$allarchived = true;
+				$del = false;
+			}
+		}
+		$messrows = array_reverse($messrows);
+		$convorows = array_reverse($convorows);
+		if ($_GET['pos'] != "") {
+			$liststart = $_GET['pos'];
+			$_SESSION['pos'] = $_GET['pos'];
+		}
+		elseif ($_SESSION['pos']) {
+			$liststart = $_SESSION['pos'];
+		}
+		else {
+			$liststart = 0;
+		}
+		$listlen = 50;
+		if (sizeof($messrows) > $liststart+$listlen) {
+			$listend = $liststart+$listlen;
+			$next = true;
+		}
+		else {
+			$listend = sizeof($messrows);
+		}
 ?>
 <script language="javascript">
 	function hili(num,base) {
@@ -512,10 +578,10 @@ else {
 	}
 	function moreact(value) {
 		range=""
-		i=0;
+		i=<?php echo $convorows[$listend-1] ?>;
 		first = true;
 		// Big HACK
-		while (i < 1000) {
+		while (i < <?php echo ($convorows[$liststart]+1) ?>) {
 			if (document.getElementById("tick"+i)) {
 				if (document.getElementById("tick"+i).checked) {
 					if (first) {
@@ -538,63 +604,6 @@ else {
 	}
 </script>
 <?php
-		$threadlen = 0;
-		$convos = array();
-		$i = 0;
-		$seen = true;
-		$star = false;
-		$allarchived = true;
-		$del = false;
-		$messrows = array();
-		foreach ($threads as $key => $val) {
-			$tree = explode('.', $key);
-			if ($tree[1] == 'num' && $val != 0) {
-				$tmpheader = imap_headerinfo($mbox, $val);
-				if ($tmpheader->Unseen == "U" || $tmpheader->Recent == "N") $seen = false;
-				if ($tmpheader->Flagged == "F") $star = true;
-				if($threadlen == 0) {
-					$header = $tmpheader;
-				}
-				if (get_mess($tmpheader->message_id, "archived") != 1) $allarchived = false;
-				if (get_mess($tmpheader->message_id, "deleted") == 1) $del = true;
-				$threadlen++;
-				$convos[$i][] = $val;
-			} elseif ($tree[1] == 'branch') {
-				if ($threadlen != 0) {
-					if ( ( ((!$allarchived && $view=="inbox") || ($allarchived && $view=="arc") || ($star && $view=="star")) && !$del )
-					|| ( $del && $view=="bin" )  ) {
-						if ($seen) $class = "read";
-						else $class = "unread";
-						$messrows[] = "<tr class=\"$class\" id=\"mess$i\"><td width=\"3%\"><input type=\"checkbox\" id=\"tick$i\" name=\"check_$class\" onchange=\"javascript:hili($i,'$class')\"></td><td width=\"3%\">".starpic($star,$i)."</td><td width=\"30%\">".$header->fromaddress." (".$threadlen.")</td><td><a href=\"$me?do=message&convo=$i\" width=\"55%\">".nice_subject($header->subject)."</a></td><td width=\"15%\">".nice_date($header->udate)."</td></tr>\n";
-					}
-					$i++;
-				}
-				$threadlen = 0;
-				$seen = true;
-				$star = false;
-				$allarchived = true;
-				$del = false;
-			}
-		}
-		$messrows = array_reverse($messrows);
-		if ($_GET['pos'] != "") {
-			$liststart = $_GET['pos'];
-			$_SESSION['pos'] = $_GET['pos'];
-		}
-		elseif ($_SESSION['pos']) {
-			$liststart = $_SESSION['pos'];
-		}
-		else {
-			$liststart = 0;
-		}
-		$listlen = 50;
-		if (sizeof($messrows) > $liststart+$listlen) {
-			$listend = $liststart+$listlen;
-			$next = true;
-		}
-		else {
-			$listend = sizeof($messrows);
-		}
 		echo "<table width=\"100%\" id=\"list\"><form name=\"form\">";
 		echo "<tr class=\"header\"><td colspan=\"4\">".actions()."<br/>Select: <a href=\"javascript:selall()\">All</a>, <a href=\"javascript:selnone()\">None</a>, <a href=\"javascript:selread()\">Read</a>, <a href=\"javascript:selunread()\">Unread</a></td>";
 		echo "<td>".($liststart+1)." - $listend of ".sizeof($messrows)."<br/>";
@@ -624,7 +633,7 @@ imap_close($mbox);
 
 } } ?>
 
-<br/><br/>AGPLMail is released under the <a href="http://www.fsf.org/licensing/licenses/agpl-3.0.html">AGPL v3</a>. Care to see the <a href="<?php echo $me ?>?do=src">Source Code</a>?
+<br/><br/><a href="http://freedomdreams.co.uk/wiki/AGPLMail">AGPLMail</a> is released under the <a href="http://www.fsf.org/licensing/licenses/agpl-3.0.html">AGPL v3</a>. Care to see the <a href="<?php echo $me ?>?do=src">Source Code</a>?
 
 </body>
 </html>
