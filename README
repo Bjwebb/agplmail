@@ -1,24 +1,3 @@
-/*
-# Copyright (C) 2008 Ben Webb <dreamer@freedomdreams.co.uk>
-# This file is part of AGPLMail.
-# 
-# AGPLMail is free software: you can redistribute it and/or modify
-# it under the terms of the GNU Affero General Public License as
-# published by the Free Software Foundation, either version 3 of the
-# License, or (at your option) any later version.
-#
-# AGPLMail is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU Affero General Public License for more details.
-#
-# You should have received a copy of the GNU Affero General Public License
-# along with AGPLMail.  If not, see <http://www.gnu.org/licenses/>.
-*/
-
-To install, you must already have an IMAP server set up. You will also need a webserver with mysql and php with the php-imap library.
-
-   1. Copy config.php.example to config.php and edit values to suit your server
-   2. Run the structure.sql file on your database.
-
-For more information, please see http://freedomdreams.co.uk/wiki/AGPLMail
+AGPLMail has now moved to savannah - https://savannah.nongnu.org/projects/agplmail
+Please use the git repository there:
+	git clone git://git.savannah.nongnu.org/agplmail.git
